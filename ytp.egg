@@ -1,0 +1,13 @@
+; vim: ft=scheme
+((author "siiky")
+ (license "unlicense")
+ (synopsis "Search and play videos from YouTube")
+ (version "0.0.0")
+ (dependencies
+   http-client
+   openssl
+   srfi-13
+   srfi-14
+   uri-common)
+ (component-options (csc-options "-O0" "-d3"))
+ (components (program ytp (source ytp.scm))))

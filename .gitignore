@@ -5,3 +5,7 @@
 *.scm~
 *.scm#*
 .#*.scm
+
+ytp
+ytp.build.sh
+ytp.install.sh
