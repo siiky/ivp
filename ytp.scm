@@ -19,6 +19,8 @@
 (import sxpath-lolevel)
 (import uri-common)
 
+(define (usage pn) (print "Usage: " pn " SEARCH-TERM..."))
+
 (define *player* "mpv")
 
 (: *default-fields* string)
@@ -88,9 +90,11 @@
       (proc-user-input res (read-line)))))
 
 (define (main args)
-  (let* ((search-string (args->can-args args))
-         (res (search search-string)))
-    (print-results res)
-    (proc-user-input res (read-line))))
+  (if (null? args)
+      (usage (program-name))
+      (let* ((search-string (args->can-args args))
+             (res (search search-string)))
+        (print-results res)
+        (proc-user-input res (read-line)))))
 
 (main (command-line-arguments))
