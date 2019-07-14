@@ -1,8 +1,6 @@
+(import (only chicken.process process-execute process-fork process-wait))
 (import chicken.io)
-(import chicken.irregex)
-(import chicken.process)
 (import chicken.process-context)
-(import chicken.sort)
 (import chicken.string)
 (import chicken.type)
 (import scheme)
@@ -14,9 +12,6 @@
 (import srfi-1)
 (import srfi-13)
 (import srfi-14)
-(import sxml-transforms)
-(import sxpath)
-(import sxpath-lolevel)
 (import uri-common)
 
 (define (usage pn) (print "Usage: " pn " SEARCH-TERM..."))
@@ -46,6 +41,7 @@
 (: args->can-args ((list-of string) --> (list-of string)))
 (define (args->can-args args) (string-join (map string-trim-both args) " "))
 
+; TODO: vector->list & assoc
 (define (avector-key avector key)
   (let ((len (vector-length avector)))
     (let loop ((idx 0))
@@ -75,26 +71,48 @@
 
   (foreach/enum print-result results))
 
+; NOTE: process-run from chicken.process lets the child run loose if exec fails
+(define (process-run cmd args)
+  (process-fork
+    (lambda ()
+      (handle-exceptions
+        _ (lambda _ #f)
+        (process-execute cmd args)))))
+
+(define (process-spawn cmd args)
+  ; NOTE: process-fork never fails
+  (process-wait (process-run cmd args)))
+
 (define (play res idx)
+  ; TODO: bounds checking
   (let ((res (list-ref res idx)))
-    (print res)
-    (process-execute *player* `(,(watch-url (car res))))))
+    (print "Will play `" (cdr res) "`")
+    (process-spawn *player* `(,(watch-url (car res))))))
 
-(define (proc-user-input res line)
-  (cond
-    ((string-every char-set:digit line)
-     (play res (string->number line)))
+(define (user-repl res)
+  (print-results res)
+  (let ((line (read-line)))
+    (cond
+      ((or (eof-object? line)
+           (string= line "q")
+           (string= line "quit"))
+       (print "Bye!"))
 
-    (else
-      (print "Not a number!")
-      (proc-user-input res (read-line)))))
+      ((string-every char-set:digit line)
+       (let ((play-res (play res (string->number line))))
+         (unless play-res
+           (print "An error occured when trying to play the video"))
+         (user-repl res)))
+
+      (else
+        (print "Not a number!")
+        (user-repl res)))))
 
 (define (main args)
   (if (null? args)
       (usage (program-name))
       (let* ((search-string (args->can-args args))
              (res (search search-string)))
-        (print-results res)
-        (proc-user-input res (read-line)))))
+        (user-repl res))))
 
 (main (command-line-arguments))
