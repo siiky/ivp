@@ -11,30 +11,18 @@
   (only srfi-13 string-every string-join string-trim-both string=)
   (only srfi-14 char-set:digit)
   (only uri-common form-urlencode)
+  (prefix (only invidious *fields* search) iv:)
   openssl)
 
 (: usage (string -> void))
 (define (usage pn) (print "Usage: " pn " SEARCH-TERM..."))
 
-(: *player* string)
-(define *player* "mpv")
-
-(: *default-fields* string)
-(define-constant *default-fields* "videoId,title")
-
-(: api-url string)
-(define-constant api-url "https://invidio.us/api/v1/")
-
-(: search-api-url string)
-(define-constant search-api-url (string-append api-url "search"))
-
-(: search-url ((list-of (pair (or string symbol) string)) --> string))
-(define (search-url parms)
-  (let ((parms
-          (if (assoc 'fields parms eq?)
-              parms
-              (alist-cons 'fields *default-fields* parms))))
-    (string-append search-api-url "?" (form-urlencode parms))))
+(define *player*
+  (make-parameter
+    "mpv"
+    (lambda (str)
+      (assert (string? str) "`*player*` must be a string")
+      str)))
 
 (: watch-url (string --> string))
 (define (watch-url vid-id) (string-append "https://invidio.us/watch?v=" vid-id))
@@ -52,8 +40,7 @@
         `(,vid-id . ,title)))
     (map vec->vid-id/title results))
 
-  (let* ((parms `((q . ,str)))
-         (qurl (search-url parms)))
+  (let ((qurl (iv:search str)))
     (post-proc (with-input-from-request qurl #f json-read))))
 
 (define (print-results results)
@@ -79,7 +66,7 @@
 (define (play res idx)
   (let ((res (list-ref res idx)))
     (print "Will play `" (cdr res) "`")
-    (process-spawn *player* `(,(watch-url (car res))))))
+    (process-spawn (*player*) `(,(watch-url (car res))))))
 
 (define (user-repl res)
   (define (user-repl-int res len)
@@ -91,7 +78,7 @@
           (print "Bye!")
 
           (let ((idx (string->number line)))
-            (if (and idx (positive? idx) (<= idx len))
+            (if (and idx (>= idx 0) (<= idx len))
                 (let ((play-res (play res idx)))
                   (unless play-res
                     (print "An error occured when trying to play the video"))
@@ -101,6 +88,7 @@
   (user-repl-int res (length res)))
 
 (define (main args)
+  (iv:*fields* '(videoId title))
   (if (null? args)
       (usage (program-name))
       (let* ((search-string (args->can-args args))
