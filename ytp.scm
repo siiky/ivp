@@ -40,7 +40,7 @@
         `(,vid-id . ,title)))
     (map vec->vid-id/title results))
 
-  (let ((qurl (iv:search str)))
+  (let ((qurl (iv:search #:q str)))
     (post-proc (with-input-from-request qurl #f json-read))))
 
 (define (print-results results)
