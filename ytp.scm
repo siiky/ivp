@@ -7,10 +7,8 @@
   (only http-client with-input-from-request)
   (only json json-read)
   (only scm-utils !f? foreach/enum)
-  (only srfi-1 alist-cons assoc map)
-  (only srfi-13 string-every string-join string-trim-both string=)
-  (only srfi-14 char-set:digit)
-  (only uri-common form-urlencode)
+  (only srfi-1 assoc map)
+  (only srfi-13 string-join string-trim-both string=)
   (prefix (only invidious *fields* search) iv:)
   openssl)
 
