@@ -1,16 +1,47 @@
-(import
-  (only chicken.io read-line)
-  (only chicken.process process-execute process-fork process-wait)
-  (only chicken.process-context command-line-arguments program-name))
+(import srfi-1)
 
 (import
-  (only http-client with-input-from-request)
-  (only json json-read)
+  scheme
+  (only chicken.io read-line)
+  (only chicken.irregex irregex irregex-match?)
+  (only chicken.process process-execute process-fork process-wait)
+  (only chicken.process-context command-line-arguments program-name)
+  (only chicken.string string-split))
+
+(import
   (only scm-utils !f? foreach/enum)
-  (only srfi-1 assoc map)
+  (only srfi-1 append-map assoc map)
   (only srfi-13 string-join string-trim-both string=)
-  (prefix (only invidious.req *fields* search) iv:)
-  openssl)
+  (prefix (only invidious.req *fields* search) iv:))
+
+(define line->numbers
+  (let ((re (irregex "^(\\d+(-\\d+)?)(,\\d+(-\\d+)?)*$"))
+        (line->numbers-int
+          (lambda (ln max) ; ln :: String
+            (let* ((singl? (lambda (l) (null? (cdr l))))
+                   (ln (string-split ln ",")) ; [String]
+                   (ln (map (cut string-split <> "-") ln)) ; [[String]]
+                   (ln (map (cut map string->number <>) ln))) ; [(Int, Int)]
+              (if (every (lambda (p)
+                           (or (singl? p)
+                               (and (>= (car p) 0)
+                                    (< (car p) (cadr p))
+                                    (< (cadr p) max))))
+                         ln) ; all (uncurry (<)) ln
+                  ; then
+                  (append-map (lambda (p)
+                                (if (singl? p)
+                                    `(,(car p))
+                                    (iota (add1 (- (cadr p)
+                                                   (car p)))
+                                          (car p))))
+                              ln) ; [Int]
+                  ; else
+                  #f)))))
+    (lambda (ln max)
+      (let ((trimmed (string-trim-both ln)))
+        (and (irregex-match? re trimmed)
+             (line->numbers-int trimmed max))))))
 
 (: usage (string -> void))
 (define (usage pn) (print "Usage: " pn " SEARCH-TERM..."))
@@ -64,6 +95,11 @@
     (print "Will play `" (cdr res) "`")
     (process-spawn (*player*) `(,(watch-url (car res))))))
 
+(define (play-list res idxs)
+  (let* ((ids (map (cut list-ref res <>) idxs))
+         (watch-urls (map (lambda (p) (watch-url (car p))) ids)))
+    (process-spawn (*player*) watch-urls)))
+
 (define (user-repl res)
   (define (user-repl-int res len)
     (print-results res)
@@ -73,13 +109,13 @@
               (string= line "quit"))
           (print "Bye!")
 
-          (let ((idx (string->number line)))
-            (if (and idx (>= idx 0) (<= idx len))
-                (let ((play-res (play res idx)))
+          (let ((idxs (line->numbers line len)))
+            (if idxs
+                (let ((play-res (play-list res idxs)))
                   (unless play-res
-                    (print "An error occured when trying to play the video"))
-                  (user-repl-int res len))
-                (print "Numbers in range only, please!"))))))
+                    (print "An error occured when trying to play the video(s)")))
+                (print "Numbers in range only, please!"))
+            (user-repl-int res len)))))
 
   (user-repl-int res (length res)))
 
