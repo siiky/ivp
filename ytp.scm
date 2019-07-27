@@ -9,7 +9,7 @@
   (only scm-utils !f? foreach/enum)
   (only srfi-1 assoc map)
   (only srfi-13 string-join string-trim-both string=)
-  (prefix (only invidious *fields* search) iv:)
+  (prefix (only invidious.req *fields* search) iv:)
   openssl)
 
 (: usage (string -> void))
@@ -37,9 +37,7 @@
              (title (assoc-key "title" lst)))
         `(,vid-id . ,title)))
     (map vec->vid-id/title results))
-
-  (let ((qurl (iv:search #:q str)))
-    (post-proc (with-input-from-request qurl #f json-read))))
+  (post-proc (iv:search #:q str)))
 
 (define (print-results results)
   (define (print-result idx result)
