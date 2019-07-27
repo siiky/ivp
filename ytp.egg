@@ -2,12 +2,11 @@
 ((author "siiky")
  (license "unlicense")
  (synopsis "Search and play videos from YouTube")
- (version "0.0.0")
+ (version "0.1.0")
  (dependencies
    http-client
    invidious
    openssl
    scm-utils
    srfi-13)
- (component-options (csc-options "-O0" "-d3"))
  (components (program ytp (source ytp.scm))))
