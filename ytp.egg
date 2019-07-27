@@ -2,9 +2,10 @@
 ((author "siiky")
  (license "unlicense")
  (synopsis "Search and play videos from YouTube")
- (version "0.2.0")
+ (version "0.3.0")
  (dependencies
    invidious
+   salmonella-log-parser
    scm-utils
    srfi-1
    srfi-13)

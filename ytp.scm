@@ -9,6 +9,7 @@
   (only chicken.string string-split))
 
 (import
+  (only salmonella-log-parser prettify-time)
   (only scm-utils !f? foreach/enum)
   (only srfi-1 append-map assoc map)
   (only srfi-13 string-join string-trim-both string=)
@@ -59,22 +60,37 @@
 (: args->can-args ((list-of string) --> string))
 (define (args->can-args args) (string-join (map string-trim-both args) " "))
 
+(define (make-result vid-id title length-seconds)
+  `(,vid-id ,title ,length-seconds))
+
+(define (result-vid-id result)
+  (car result))
+
+(define (result-title result)
+  (cadr result))
+
+(define (result-length-seconds result)
+  (caddr result))
+
 (define (search str)
   (define (post-proc results)
     (define (vec->vid-id/title res)
       (define (assoc-key key alst) (!f? (assoc key alst string=) cdr))
       (let* ((lst (vector->list res))
              (vid-id (assoc-key "videoId" lst))
-             (title (assoc-key "title" lst)))
-        `(,vid-id . ,title)))
+             (title (assoc-key "title" lst))
+             (length-seconds (assoc-key "lengthSeconds" lst)))
+        (make-result vid-id title length-seconds)))
     (map vec->vid-id/title results))
   (post-proc (iv:search #:q str)))
 
 (define (print-results results)
   (define (print-result idx result)
-    (let ((vid-id (car result))
-          (title (cdr result)))
-      (print idx "\t" vid-id "\t" title)))
+    (let ((idx (number->string idx))
+          (vid-id (result-vid-id result))
+          (title (result-title result))
+          (len-secs (prettify-time (result-length-seconds result))))
+      (print (string-join `(,idx ,len-secs ,vid-id ,title) "\t"))))
 
   (foreach/enum print-result results))
 
@@ -90,14 +106,9 @@
   ; NOTE: process-fork never fails
   (process-wait (process-run cmd args)))
 
-(define (play res idx)
-  (let ((res (list-ref res idx)))
-    (print "Will play `" (cdr res) "`")
-    (process-spawn (*player*) `(,(watch-url (car res))))))
-
 (define (play-list res idxs)
   (let* ((ids (map (cut list-ref res <>) idxs))
-         (watch-urls (map (lambda (p) (watch-url (car p))) ids)))
+         (watch-urls (map (lambda (p) (watch-url (result-vid-id p))) ids)))
     (process-spawn (*player*) watch-urls)))
 
 (define (user-repl res)
@@ -120,7 +131,7 @@
   (user-repl-int res (length res)))
 
 (define (main args)
-  (iv:*fields* '(videoId title))
+  (iv:*fields* '(videoId title lengthSeconds))
   (if (null? args)
       (usage (program-name))
       (let* ((search-string (args->can-args args))
