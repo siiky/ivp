@@ -2,13 +2,14 @@
 ((author "siiky")
  (license "unlicense")
  (synopsis "Search and play videos from Invidious")
- (version "0.3.2")
+ (version "0.3.3")
  (dependencies
    fmt
    invidious
    salmonella
    srfi-1
    srfi-13)
+ ;(component-options (csc-options "-O0" "-d3"))
  (components
    (program ivp
             (source ivp.scm))))

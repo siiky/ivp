@@ -29,10 +29,11 @@
                    (ln (the (list-of (list-of fixnum))
                             (map (cut map string->number <>) ln)))) ; [[Int]]
               (if (every (lambda (p)
-                           (or (singl? p)
-                               (and (>= (car p) 0)
-                                    (< (car p) (cadr p))
-                                    (< (cadr p) max))))
+                           (and (>= (car p) 0)
+                                (if (singl? p)
+                                    (< (car p) max)
+                                    (and (< (car p) (cadr p))
+                                         (< (cadr p) max)))))
                          ln) ; all (uncurry (<)) ln
                   ; then
                   (append-map (lambda (p)
