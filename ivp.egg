@@ -2,7 +2,7 @@
 ((author "siiky")
  (license "unlicense")
  (synopsis "Search and play videos from Invidious")
- (version "0.3.1")
+ (version "0.3.2")
  (dependencies
    invidious
    salmonella
