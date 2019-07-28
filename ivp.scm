@@ -1,19 +1,19 @@
-(import srfi-1)
-
 (import
   scheme
+  (only chicken.base add1 cut)
   (only chicken.io read-line)
   (only chicken.irregex irregex irregex-match?)
   (only chicken.process process-execute process-fork process-wait)
   (only chicken.process-context command-line-arguments program-name)
-  (only chicken.string string-split))
+  (only chicken.string string-split)
+  (rename chicken.type (: :type)))
 
 (import
   (only salmonella-log-parser prettify-time)
-  (only scm-utils !f? foreach/enum)
-  (only srfi-1 append-map assoc map)
+  (only srfi-1 append-map assoc every iota map)
   (only srfi-13 string-join string-trim-both string=)
-  (prefix (only invidious.req *fields* search) iv:))
+  (rename invidious.req (search iv:search) (*fields* *fields*))
+  srfi-42)
 
 (define line->numbers
   (let ((re (irregex "^(\\d+(-\\d+)?)(,\\d+(-\\d+)?)*$"))
@@ -22,7 +22,7 @@
             (let* ((singl? (lambda (l) (null? (cdr l))))
                    (ln (string-split ln ",")) ; [String]
                    (ln (map (cut string-split <> "-") ln)) ; [[String]]
-                   (ln (map (cut map string->number <>) ln))) ; [(Int, Int)]
+                   (ln (map (cut map string->number <>) ln))) ; [[Int]]
               (if (every (lambda (p)
                            (or (singl? p)
                                (and (>= (car p) 0)
@@ -44,7 +44,7 @@
         (and (irregex-match? re trimmed)
              (line->numbers-int trimmed max))))))
 
-(: usage (string -> void))
+(:type usage (string -> void))
 (define (usage pn) (print "Usage: " pn " SEARCH-TERM..."))
 
 (define *player*
@@ -54,10 +54,10 @@
       (assert (string? str) "`*player*` must be a string")
       str)))
 
-(: watch-url (string --> string))
+(:type watch-url (string --> string))
 (define (watch-url vid-id) (string-append "https://invidio.us/watch?v=" vid-id))
 
-(: args->can-args ((list-of string) --> string))
+(:type args->can-args ((list-of string) --> string))
 (define (args->can-args args) (string-join (map string-trim-both args) " "))
 
 (define (make-result vid-id title length-seconds)
@@ -72,17 +72,17 @@
 (define (result-length-seconds result)
   (caddr result))
 
+(define (vector->result res)
+  (define (!f? x f) (if x (f x) x))
+  (define (assoc-key key alst) (!f? (assoc key alst string=) cdr))
+  (let* ((lst (vector->list res))
+         (vid-id (assoc-key "videoId" lst))
+         (title (assoc-key "title" lst))
+         (length-seconds (assoc-key "lengthSeconds" lst)))
+    (make-result vid-id title length-seconds)))
+
 (define (search str)
-  (define (post-proc results)
-    (define (vec->vid-id/title res)
-      (define (assoc-key key alst) (!f? (assoc key alst string=) cdr))
-      (let* ((lst (vector->list res))
-             (vid-id (assoc-key "videoId" lst))
-             (title (assoc-key "title" lst))
-             (length-seconds (assoc-key "lengthSeconds" lst)))
-        (make-result vid-id title length-seconds)))
-    (map vec->vid-id/title results))
-  (post-proc (iv:search #:q str)))
+  (map vector->result (iv:search #:q str)))
 
 (define (print-results results)
   (define (print-result idx result)
@@ -92,7 +92,9 @@
           (len-secs (prettify-time (result-length-seconds result))))
       (print (string-join `(,idx ,len-secs ,vid-id ,title) "\t"))))
 
-  (foreach/enum print-result results))
+  (do-ec
+    (:list result (index idx) results)
+    (print-result idx result)))
 
 ; NOTE: process-run from chicken.process lets the child run loose if exec fails
 (define (process-run cmd args)
@@ -131,7 +133,7 @@
   (user-repl-int res (length res)))
 
 (define (main args)
-  (iv:*fields* '(videoId title lengthSeconds))
+  (*fields* '(videoId title lengthSeconds))
   (if (null? args)
       (usage (program-name))
       (let* ((search-string (args->can-args args))
