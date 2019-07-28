@@ -4,11 +4,11 @@
  (synopsis "Search and play videos from Invidious")
  (version "0.3.2")
  (dependencies
+   fmt
    invidious
    salmonella
    srfi-1
-   srfi-13
-   srfi-42)
+   srfi-13)
  (components
    (program ivp
             (source ivp.scm))))

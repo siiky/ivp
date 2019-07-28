@@ -9,12 +9,12 @@
   (rename chicken.type (: :type)))
 
 (import
+  (only fmt columnar dsp fmt fmt-join)
   (only salmonella-log-parser prettify-time)
   (only srfi-1 append-map assoc every iota map)
-  (only srfi-13 string-join string-trim-both string=)
+  (only srfi-13 string-concatenate string-join string-trim-both string=)
   (rename (only invidious.req *fields* search) (*fields* *fields*) (search iv:search))
-  (rename (only invidious.uri watch) (watch iv:watch))
-  srfi-42)
+  (rename (only invidious.uri watch) (watch iv:watch)))
 
 (:type line->numbers (string fixnum --> (or false (list-of fixnum))))
 (define line->numbers
@@ -100,20 +100,6 @@
 (define (search str)
   (map vector->result (iv:search #:q str)))
 
-(:type print-results (results -> void))
-(define (print-results results)
-  (:type print-result (result -> void))
-  (define (print-result idx result)
-    (let ((idx (number->string idx))
-          (vid-id (result-vid-id result))
-          (title (result-title result))
-          (len-secs (prettify-time (result-length-seconds result))))
-      (print (string-join `(,idx ,len-secs ,vid-id ,title) "\t"))))
-
-  (do-ec
-    (:list result (index idx) results)
-    (print-result idx result)))
-
 ; NOTE: process-run from chicken.process lets the child run loose if exec fails
 (define (process-run cmd args)
   (process-fork
@@ -126,17 +112,31 @@
   ; NOTE: process-fork never fails
   (process-wait (process-run cmd args)))
 
+(:type play-list (results (list-of fixnum) --> void))
 (define (play-list res idxs)
   (let* ((filtered-res (map (cut list-ref res <>) idxs))
          (ids (map result-vid-id filtered-res))
          (watch-urls (map iv:watch ids)))
     (process-spawn (*player*) watch-urls)))
 
+(:type results->columns (results fixnum --> (list-of string)))
+(define (results->columns results len)
+  (map (compose string-concatenate (cut intersperse <> "\n"))
+       `(,(map number->string (iota len))
+          ,(map (compose prettify-time result-length-seconds) results)
+          ,(map result-vid-id results)
+          ,(map result-title results))))
+
+(:type print-results ((list-of string) -> void))
+(define (print-results columns)
+  (fmt #t (apply columnar (map dsp columns))))
+
 (:type user-repl (results -> void))
 (define (user-repl res)
-  (let ((len (length res)))
+  (let* ((len (length res))
+         (columns (results->columns res len)))
     (let loop ()
-      (print-results res)
+      (print-results columns)
       (let ((line (read-line)))
         (if (or (eof-object? line)
                 (string= line "q")
