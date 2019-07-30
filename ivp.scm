@@ -1,12 +1,12 @@
 (import
   scheme
+  chicken.type
   (only chicken.base add1 cut)
   (only chicken.io read-line)
   (only chicken.irregex irregex irregex-match?)
   (only chicken.process process-execute process-fork process-wait)
   (only chicken.process-context command-line-arguments program-name)
-  (only chicken.string string-split)
-  (rename chicken.type (: :type)))
+  (only chicken.string string-split))
 
 (import
   (only defstruct defstruct)
@@ -18,7 +18,7 @@
   (rename (only invidious.req *fields* search) (*fields* *fields*) (search iv:search))
   (rename (only invidious.uri watch) (watch iv:watch)))
 
-(:type *player* (#!optional string -> string))
+(: *player* (#!optional string -> string))
 (define *player*
   (make-parameter
     "mpv"
@@ -26,7 +26,7 @@
       (assert (string? str) "`*player*` must be a string")
       str)))
 
-(:type usage (string -> void))
+(: usage (string -> void))
 (define (usage pn)
   (print "Usage: " pn "[OPTIONS]... SEARCH-TERM..."))
 
@@ -37,7 +37,7 @@
   `((,*PLAYER-OPTS* . player)
     (,*HELP-OPTS*)))
 
-(:type help (string -> void))
+(: help (string -> void))
 (define (help pn)
   (print
     pn " [OPTION...] [--] [SEARCH_TERM...]\n"
@@ -64,10 +64,10 @@
     (*player* (options-player ret))
     ret))
 
-(:type args->can-args ((list-of string) --> string))
+(: args->can-args ((list-of string) --> string))
 (define (args->can-args args) (string-join (map string-trim-both args) " "))
 
-(:type line->numbers (string fixnum --> (or false (list-of fixnum))))
+(: line->numbers (string fixnum --> (or false (list-of fixnum))))
 (define line->numbers
   (let ((re (irregex "^(\\d+(-\\d+)?)(,\\d+(-\\d+)?)*$"))
         (line->numbers-int
@@ -101,17 +101,16 @@
         (and (irregex-match? re trimmed)
              (line->numbers-int trimmed max))))))
 
-(define-type result (list string string fixnum))
+(defstruct result vid-id title length-seconds)
+(define-type result (struct result))
 (define-type results (list-of result))
 
-(defstruct result vid-id title length-seconds)
-
-(:type vector->result ((vector-of (pair string (or string fixnum))) --> result))
+(: vector->result ((vector-of (pair string (or string fixnum))) --> result))
 (define (vector->result res)
-  (:type !f? ((or false 'a) ('a -> 'b) --> (or false 'b)))
+  (: !f? ((or false 'a) ('a -> 'b) --> (or false 'b)))
   (define (!f? x f) (if x (f x) x))
 
-  (:type assoc-key (string (list-of (pair string (or string fixnum))) --> (or false string fixnum)))
+  (: assoc-key (string (list-of (pair string (or string fixnum))) --> (or false string fixnum)))
   (define (assoc-key key alst) (!f? (assoc key alst string=) cdr))
 
   (let* ((lst (vector->list res))
@@ -122,7 +121,7 @@
                  #:title title
                  #:length-seconds length-seconds)))
 
-(:type search (string -> results))
+(: search (string -> results))
 (define (search str)
   (map vector->result (iv:search #:q str)))
 
@@ -138,14 +137,14 @@
   ; NOTE: process-fork never fails
   (process-wait (process-run cmd args)))
 
-(:type play-list (results (list-of fixnum) --> void))
+(: play-list (results (list-of fixnum) --> void))
 (define (play-list res idxs)
   (let* ((filtered-res (map (cut list-ref res <>) idxs))
          (ids (map result-vid-id filtered-res))
          (watch-urls (map iv:watch ids)))
     (process-spawn (*player*) watch-urls)))
 
-(:type results->columns (results fixnum --> (list-of string)))
+(: results->columns (results fixnum --> (list-of string)))
 (define (results->columns results len)
   (map (compose string-concatenate (cut intersperse <> "\n"))
        `(,(map number->string (iota len))
@@ -153,11 +152,11 @@
           ,(map result-vid-id results)
           ,(map result-title results))))
 
-(:type print-results ((list-of string) -> void))
+(: print-results ((list-of string) -> void))
 (define (print-results columns)
   (fmt #t (apply columnar (map dsp columns))))
 
-(:type user-repl (results -> void))
+(: user-repl (results -> void))
 (define (user-repl res)
   (let* ((len (length res))
          (columns (results->columns res len)))
