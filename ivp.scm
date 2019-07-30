@@ -9,12 +9,63 @@
   (rename chicken.type (: :type)))
 
 (import
+  (only defstruct defstruct)
   (only fmt columnar dsp fmt fmt-join)
+  (only optimism parse-command-line)
   (only salmonella-log-parser prettify-time)
   (only srfi-1 append-map assoc every iota map)
   (only srfi-13 string-concatenate string-join string-trim-both string=)
   (rename (only invidious.req *fields* search) (*fields* *fields*) (search iv:search))
   (rename (only invidious.uri watch) (watch iv:watch)))
+
+(:type *player* (#!optional string -> string))
+(define *player*
+  (make-parameter
+    "mpv"
+    (lambda (str)
+      (assert (string? str) "`*player*` must be a string")
+      str)))
+
+(:type usage (string -> void))
+(define (usage pn)
+  (print "Usage: " pn "[OPTIONS]... SEARCH-TERM..."))
+
+(define-constant *PLAYER-OPTS* '(--player))
+(define-constant *HELP-OPTS* '(-h --help))
+(define-constant
+  *OPTS*
+  `((,*PLAYER-OPTS* . player)
+    (,*HELP-OPTS*)))
+
+(:type help (string -> void))
+(define (help pn)
+  (print
+    pn " [OPTION...] [--] [SEARCH_TERM...]\n"
+    "   -h --help                  show this help message\n"
+    "      --player PLAYER         player to use"))
+
+(defstruct options help player rest)
+
+(define (process-args args)
+  (define (kons ret opt/args)
+    (let ((opt (car opt/args))
+          (args (cdr opt/args)))
+      (cond
+        ((memq opt *PLAYER-OPTS*)
+         (update-options ret #:player args))
+        ((memq opt *HELP-OPTS*)
+         (update-options ret #:help #t))
+        ((eq? '-- opt)
+         (update-options ret #:rest args)))))
+
+  (let* ((pargs (parse-command-line args *OPTS*))
+         (knil (make-options #:help #f #:player "mpv" #:rest '()))
+         (ret (foldl kons knil pargs)))
+    (*player* (options-player ret))
+    ret))
+
+(:type args->can-args ((list-of string) --> string))
+(define (args->can-args args) (string-join (map string-trim-both args) " "))
 
 (:type line->numbers (string fixnum --> (or false (list-of fixnum))))
 (define line->numbers
@@ -50,38 +101,10 @@
         (and (irregex-match? re trimmed)
              (line->numbers-int trimmed max))))))
 
-(:type usage (string -> void))
-(define (usage pn) (print "Usage: " pn " SEARCH-TERM..."))
-
-(:type *player* (#!optional string -> string))
-(define *player*
-  (make-parameter
-    "mpv"
-    (lambda (str)
-      (assert (string? str) "`*player*` must be a string")
-      str)))
-
-(:type args->can-args ((list-of string) --> string))
-(define (args->can-args args) (string-join (map string-trim-both args) " "))
-
 (define-type result (list string string fixnum))
 (define-type results (list-of result))
 
-(:type make-result (string string fixnum --> result))
-(define (make-result vid-id title length-seconds)
-  `(,vid-id ,title ,length-seconds))
-
-(:type result-vid-id (result --> string))
-(define (result-vid-id result)
-  (car result))
-
-(:type result-title (result --> string))
-(define (result-title result)
-  (cadr result))
-
-(:type result-length-seconds (result --> fixnum))
-(define (result-length-seconds result)
-  (caddr result))
+(defstruct result vid-id title length-seconds)
 
 (:type vector->result ((vector-of (pair string (or string fixnum))) --> result))
 (define (vector->result res)
@@ -95,7 +118,9 @@
          (vid-id (assoc-key "videoId" lst))
          (title (assoc-key "title" lst))
          (length-seconds (assoc-key "lengthSeconds" lst)))
-    (make-result vid-id title length-seconds)))
+    (make-result #:vid-id vid-id
+                 #:title title
+                 #:length-seconds length-seconds)))
 
 (:type search (string -> results))
 (define (search str)
@@ -154,10 +179,15 @@
 
 (define (main args)
   (*fields* '(videoId title lengthSeconds))
-  (if (null? args)
-      (usage (program-name))
-      (let* ((search-string (args->can-args args))
-             (res (search search-string)))
-        (user-repl res))))
+  (let ((options (process-args args)))
+    (cond
+      ((options-help options)
+       (help (program-name)))
+      ((null? (options-rest options))
+       (usage (program-name)))
+      (else
+        (let* ((search-string (args->can-args (options-rest options)))
+               (res (search search-string)))
+          (user-repl res))))))
 
 (main (command-line-arguments))

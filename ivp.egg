@@ -2,10 +2,11 @@
 ((author "siiky")
  (license "unlicense")
  (synopsis "Search and play videos from Invidious")
- (version "0.3.3")
+ (version "0.3.4")
  (dependencies
    fmt
    invidious
+   optimism
    salmonella
    srfi-1
    srfi-13)
