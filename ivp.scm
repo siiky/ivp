@@ -9,13 +9,15 @@
   (only chicken.string string-split))
 
 (import
+  (only cling *usage* help process-arguments)
   (only defstruct defstruct)
   (only fmt columnar dsp fmt fmt-join)
-  (only optimism parse-command-line)
   (only salmonella-log-parser prettify-time)
   (only srfi-1 append-map assoc every iota map)
   (only srfi-13 string-concatenate string-join string-trim-both string=)
-  (rename (only invidious.req *fields* search) (*fields* *fields*) (search iv:search))
+
+  (only invidious.uri *fields* *host*)
+  (rename (only invidious.req search) (search iv:search))
   (rename (only invidious.uri watch) (watch iv:watch)))
 
 (: *player* (#!optional string -> string))
@@ -26,42 +28,60 @@
       (assert (string? str) "`*player*` must be a string")
       str)))
 
+(defstruct options help instance page player region rest sort-by type)
+
 (: usage (string -> void))
 (define (usage pn)
-  (print "Usage: " pn "[OPTIONS]... SEARCH-TERM..."))
-
-(define-constant *PLAYER-OPTS* '(--player))
-(define-constant *HELP-OPTS* '(-h --help))
-(define-constant
-  *OPTS*
-  `((,*PLAYER-OPTS* . player)
-    (,*HELP-OPTS*)))
-
-(: help (string -> void))
-(define (help pn)
-  (print
-    pn " [OPTION...] [--] [SEARCH_TERM...]\n"
-    "   -h --help                  show this help message\n"
-    "      --player PLAYER         player to use"))
-
-(defstruct options help player rest)
+  (print "Usage: " pn " [OPTION ...] SEARCH-TERM ..."))
 
 (define (process-args args)
-  (define (kons ret opt/args)
-    (let ((opt (car opt/args))
-          (args (cdr opt/args)))
-      (cond
-        ((memq opt *PLAYER-OPTS*)
-         (update-options ret #:player args))
-        ((memq opt *HELP-OPTS*)
-         (update-options ret #:help #t))
-        ((eq? '-- opt)
-         (update-options ret #:rest args)))))
+  (define *OPTS*
+    `((((-? -h --help))
+       "show this help message"
+       ,(lambda (ret _) (update-options ret #:help #t)))
 
-  (let* ((pargs (parse-command-line args *OPTS*))
-         (knil (make-options #:help #f #:player "mpv" #:rest '()))
-         (ret (foldl kons knil pargs)))
+      (((--instance) . instance)
+       "the instance to use"
+       ,(lambda (ret instance) (update-options ret #:instance instance)))
+
+      (((--page) . page)
+       "the page number to show"
+       ,(lambda (ret page) (update-options ret #:page (string->number page))))
+
+      (((--player) . player)
+       "the player to use"
+       ,(lambda (ret player) (update-options ret #:player player)))
+
+      (((--region) . region)
+       "the search region"
+       ,(lambda (ret region) (update-options ret #:region region)))
+
+      (((--sort-by) . sort-by)
+       "the sort method"
+       ,(lambda (ret sort-by) (update-options ret #:sort-by sort-by)))
+
+      (((--type) . type)
+       "the search type (video, playlist, channel or all)"
+       ,(lambda (ret type) (update-options ret #:type type)))))
+
+  (define knil (make-options
+                 #:help #f
+                 #:instance #f
+                 #:page #f
+                 #:player "mpv"
+                 #:region #f
+                 #:rest '()
+                 #:sort-by #f
+                 #:type #f))
+
+  (define (rest-kons ret rest)
+    (update-options ret #:rest rest))
+
+  (let ((ret (process-arguments *OPTS* knil rest-kons args)))
+    (*usage* usage)
     (*player* (options-player ret))
+    (when (options-instance ret)
+      (*host* (options-instance ret)))
     ret))
 
 (: args->can-args ((list-of string) --> string))
@@ -101,11 +121,10 @@
         (and (irregex-match? re trimmed)
              (line->numbers-int trimmed max))))))
 
-(defstruct result vid-id title length-seconds)
-(define-type result (struct result))
-(define-type results (list-of result))
+(defstruct result type id title length-seconds)
+(define-type results (list-of (struct result)))
 
-(: vector->result ((vector-of (pair string (or string fixnum))) --> result))
+(: vector->result ((vector-of (pair string (or string fixnum))) --> (struct result)))
 (define (vector->result res)
   (: !f? ((or false 'a) ('a -> 'b) --> (or false 'b)))
   (define (!f? x f) (if x (f x) x))
@@ -113,17 +132,32 @@
   (: assoc-key (string (list-of (pair string (or string fixnum))) --> (or false string fixnum)))
   (define (assoc-key key alst) (!f? (assoc key alst string=) cdr))
 
+  (define (id-by-type type)
+    (cdr (assoc type
+                '(("video" . "videoId")
+                  ("playlist" . "playlistId")
+                  ("channel" . "authorId")))))
+
   (let* ((lst (vector->list res))
-         (vid-id (assoc-key "videoId" lst))
+         (id (assoc-key "videoId" lst))
          (title (assoc-key "title" lst))
          (length-seconds (assoc-key "lengthSeconds" lst)))
-    (make-result #:vid-id vid-id
+    (make-result #:type #f
+                 #:id id
                  #:title title
                  #:length-seconds length-seconds)))
 
-(: search (string -> results))
-(define (search str)
-  (map vector->result (iv:search #:q str)))
+(: search ((struct options) -> results))
+(define (search options)
+  (map vector->result
+       (iv:search
+         #:q       (args->can-args (options-rest options))
+         #:page    (options-page options)
+         #:region  (options-region options)
+         #:sort-by (options-sort-by options)
+         ; TODO: Get ready for types other than video
+         ;(options-type options)
+         #:type    #f)))
 
 ; NOTE: process-run from chicken.process lets the child run loose if exec fails
 (define (process-run cmd args)
@@ -140,7 +174,7 @@
 (: play-list (results (list-of fixnum) --> void))
 (define (play-list res idxs)
   (let* ((filtered-res (map (cut list-ref res <>) idxs))
-         (ids (map result-vid-id filtered-res))
+         (ids (map result-id filtered-res))
          (watch-urls (map iv:watch ids)))
     (process-spawn (*player*) watch-urls)))
 
@@ -149,7 +183,7 @@
   (map (compose string-concatenate (cut intersperse <> "\n"))
        `(,(map number->string (iota len))
           ,(map (compose prettify-time result-length-seconds) results)
-          ,(map result-vid-id results)
+          ,(map result-id results)
           ,(map result-title results))))
 
 (: print-results ((list-of string) -> void))
@@ -158,16 +192,17 @@
 
 (: user-repl (results -> void))
 (define (user-repl res)
+  (define (quit? line)
+    (or (eof-object? line)
+        (string= line "q")
+        (string= line "quit")))
   (let* ((len (length res))
          (columns (results->columns res len)))
     (let loop ()
       (print-results columns)
       (let ((line (read-line)))
-        (if (or (eof-object? line)
-                (string= line "q")
-                (string= line "quit"))
+        (if (quit? line)
             (print "Bye!")
-
             (let ((idxs (line->numbers line len)))
               (if idxs
                   (let ((play-res (play-list res idxs)))
@@ -177,7 +212,8 @@
               (loop)))))))
 
 (define (main args)
-  (*fields* '(videoId title lengthSeconds))
+  ;(*fields* '(authorId lengthSeconds playlistId title type videoId))
+  (*fields* '(lengthSeconds title videoId))
   (let ((options (process-args args)))
     (cond
       ((options-help options)
@@ -185,8 +221,6 @@
       ((null? (options-rest options))
        (usage (program-name)))
       (else
-        (let* ((search-string (args->can-args (options-rest options)))
-               (res (search search-string)))
-          (user-repl res))))))
+        (user-repl (search options))))))
 
 (main (command-line-arguments))

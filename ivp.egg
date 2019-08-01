@@ -4,9 +4,9 @@
  (synopsis "Search and play videos from Invidious")
  (version "0.3.4")
  (dependencies
+   cling ; https://github.com/siiky/cling
    fmt
-   invidious
-   optimism
+   invidious ; https://github.com/siiky/invidious.scm
    salmonella
    srfi-1
    srfi-13)
