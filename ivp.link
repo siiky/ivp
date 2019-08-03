@@ -1,8 +1,0 @@
-(invidious.req
-  invidious.uri
-  srfi-13
-  srfi-1
-  salmonella-log-parser
-  optimism
-  fmt
-  defstruct)

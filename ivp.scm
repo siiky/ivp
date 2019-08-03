@@ -14,7 +14,7 @@
   (only fmt columnar dsp fmt fmt-join)
   (only salmonella-log-parser prettify-time)
   (only srfi-1 append-map assoc every iota map)
-  (only srfi-13 string-concatenate string-join string-trim-both string=)
+  (only srfi-13 string-join string-trim-both string=)
 
   (only invidious.uri *fields* *host*)
   (rename (only invidious.req search) (search iv:search))
@@ -180,7 +180,7 @@
 
 (: results->columns (results fixnum --> (list-of string)))
 (define (results->columns results len)
-  (map (compose string-concatenate (cut intersperse <> "\n"))
+  (map (cut string-join <> "\n")
        `(,(map number->string (iota len))
           ,(map (compose prettify-time result-length-seconds) results)
           ,(map result-id results)

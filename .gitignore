@@ -7,5 +7,6 @@
 .#*.scm
 
 ivp
-ivp.build.sh
-ivp.install.sh
+*.build.sh
+*.install.sh
+*.link
