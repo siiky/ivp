@@ -1,7 +1,7 @@
 (import
   (except scheme map member)
   chicken.type
-  (only chicken.base add1 butlast cut)
+  (only chicken.base add1 butlast cut intersperse)
   (only chicken.io read-line)
   (only chicken.irregex irregex irregex-match?)
   (only chicken.process process-execute process-fork process-wait)
@@ -11,7 +11,7 @@
 (import
   (only cling *usage* help process-arguments)
   (only defstruct defstruct)
-  (only fmt columnar dsp fmt fmt-join)
+  (only fmt dsp fmt fmt-join tabular)
   (only salmonella-log-parser prettify-time)
   (only srfi-1 append-map every iota last map member)
   (only srfi-13 string-concatenate string-join string-trim-both string=)
@@ -226,7 +226,7 @@
       ((playlist) "P")
       ((channel)  "C")))
 
-  (map (cut string-join <> "\n")
+  (map (cut fmt-join dsp <> "\n")
        (list
          (map number->string (iota len))
          (map (compose type->type-tag result-type) results)
@@ -243,8 +243,9 @@
 (define print-results
   (let ((res #f))
     (lambda (columns)
-      (unless res (set! res (map dsp columns)))
-      (fmt #t (apply columnar res)))))
+      (unless res
+        (set! res (intersperse (map dsp columns) (dsp " "))))
+      (fmt #t (apply tabular res)))))
 
 (: user-repl (results -> void))
 (define (user-repl res)
