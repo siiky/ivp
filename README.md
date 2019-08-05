@@ -17,26 +17,57 @@ ivp rick astley
 ```
 
 ```
-0                  3m33s              dQw4w9WgXcQ        Rick Astley - Never Gonna Give You Up (Video)
-1                  3m25s              yPYZpwSpKmA        Rick Astley - Together Forever (Official Music Video)
-2                  3m26s              cc91EfoBh8A        Rick Astley - Angels On My Side (Official Music Video)
-3                  4m54s              C2xel6q0yao        Rick Astley - Cry for Help (Official Video)
-4                  3m36s              elp76GYNhbI        Rick Astley - It Would Take a Strong Strong Man
-5                  5m14s              WUEdsXgBrDA        Rick Astley - Uptown Funk - RTL LATE NIGHT
-6                  3m26s              BeyEGebJ1l4        Rick Astley - Whenever You Need Somebody (Official Music Video)
-7                  3m39s              AC3Ejf7vPEY        Rick Astley - Keep Singing (Official Music Video)
-8                  17m45s             pT0eqOAqhdg        Rick Astley - Greatest Hits 80's Mix
-9                  4m6s               Y1FWJJAKz30        Rick Astley's Daughter Taught Him About Rickrolling | The Graham Norton Show | BBC America
-10                 2m58s              EPUVstUH22k        Rick Astley - Beautiful Life (Official Video)
-11                 1h2m31s            AgxtWzTe9ek        The Best Of Rick Astley Greatest Hits|Rick Astley Together Forever|Rick Astley Mix 2017-2018
-12                 3m17s              2nKsnQsi0EQ        Rick Astley - She Wants To Dance With Me
-13                 4m39s              IdkCEioCp24        Foo Fighters With Rick Astley - Never Gonna Give You Up  - London O2 Arena 19 September 2017
-14                 3m29s              5o7WEv5Q5ZE        Rick Astley - Dance (Official Video)
-15                 4m10s              X6uzlX51kbo        Rick Astley - Don't Say Goodbye (Audio)
-16                 3m8s               rAUkXDhrk5k        Rick Astley - Try (Official Video)
-17                 7m42s              p1tMZ50s2Oo        Rick Astley - Never Gonna Give You Up (Live @ V Festival 2016 + Interview, HD)
-18                 4m24s              DqZS89jFCFg        Rick Astley - Hold Me In Your Arms (Official Music Video)
-19                 3m15s              m3wzpC2o42I        Lights Out - Rick Astley
+0              V              dQw4w9WgXcQ    3m33s          Rick Astley - Never Gonna Give You Up (Video)
+1              V              yPYZpwSpKmA    3m25s          Rick Astley - Together Forever (Official Music Video)
+2              V              cc91EfoBh8A    3m26s          Rick Astley - Angels On My Side (Official Music Video)
+3              V              C2xel6q0yao    4m54s          Rick Astley - Cry for Help (Official Video)
+4              V              elp76GYNhbI    3m36s          Rick Astley - It Would Take a Strong Strong Man
+5              V              BeyEGebJ1l4    3m26s          Rick Astley - Whenever You Need Somebody (Official Music Video)
+6              V              WUEdsXgBrDA    5m14s          Rick Astley - Uptown Funk - RTL LATE NIGHT
+7              V              EPUVstUH22k    2m58s          Rick Astley - Beautiful Life (Official Video)
+8              V              IdkCEioCp24    4m39s          Foo Fighters With Rick Astley - Never Gonna Give You Up  - London O2 Arena 19 September 2017
+9              V              rAUkXDhrk5k    3m8s           Rick Astley - Try (Official Video)
+10             V              Y1FWJJAKz30    4m6s           Rick Astley's Daughter Taught Him About Rickrolling | The Graham Norton Show | BBC America
+11             V              pT0eqOAqhdg    17m45s         Rick Astley - Greatest Hits 80's Mix
+12             V              tTb7xbuZYYs    53m52s         RICK ASTLEY  Live Full Concert 2018
+13             V              Lf5jK46Cwe8    4m2s           Rick Astley - Giant (Tour Video)
+14             V              2nKsnQsi0EQ    3m17s          Rick Astley - She Wants To Dance With Me
+15             V              p1tMZ50s2Oo    7m42s          Rick Astley - Never Gonna Give You Up (Live @ V Festival 2016 + Interview, HD)
+16             V              AC3Ejf7vPEY    3m39s          Rick Astley - Keep Singing (Official Music Video)
+17             V              AgxtWzTe9ek    1h2m31s        The Best Of Rick Astley Greatest Hits|Rick Astley Together Forever|Rick Astley Mix 2017-2018
+18             V              DqZS89jFCFg    4m24s          Rick Astley - Hold Me In Your Arms (Official Music Video)
+19             V              BU1PaLmUcKg    6m47s          Rick Astley - My Arms Keep Missing You
+```
+
+```sh
+# Search for all types (videos, playlists and channels)
+ivp --type all rick astley
+```
+
+```
+0              V              dQw4w9WgXcQ    3m33s          Rick Astley - Never Gonna Give You Up (Video)
+1              V              yPYZpwSpKmA    3m25s          Rick Astley - Together Forever (Official Music Video)
+2              C              UCuAXFkgsw1L7xaCfnd5JJOw               Official Rick Astley
+3              V              cc91EfoBh8A    3m26s          Rick Astley - Angels On My Side (Official Music Video)
+4              V              C2xel6q0yao    4m54s          Rick Astley - Cry for Help (Official Video)
+5              V              elp76GYNhbI    3m36s          Rick Astley - It Would Take a Strong Strong Man
+6              V              BeyEGebJ1l4    3m26s          Rick Astley - Whenever You Need Somebody (Official Music Video)
+7              V              djV11Xbc914    3m48s          a-ha - Take On Me (Official Music Video)
+8              V              a3MWmObR4Ow    3m42s          Dying Inside To Hold You - Timmy Thomas
+9              V              4N1iwQxiHrs    4m14s          The Outfield - Your Love (Official Video)
+10             V              EPUVstUH22k    2m58s          Rick Astley - Beautiful Life (Official Video)
+11             V              WUEdsXgBrDA    5m14s          Rick Astley - Uptown Funk - RTL LATE NIGHT
+12             V              IdkCEioCp24    4m39s          Foo Fighters With Rick Astley - Never Gonna Give You Up  - London O2 Arena 19 September 2017
+13             V              Y1FWJJAKz30    4m6s           Rick Astley's Daughter Taught Him About Rickrolling | The Graham Norton Show | BBC America
+14             V              rAUkXDhrk5k    3m8s           Rick Astley - Try (Official Video)
+15             V              pT0eqOAqhdg    17m45s         Rick Astley - Greatest Hits 80's Mix
+16             V              Lf5jK46Cwe8    4m2s           Rick Astley - Giant (Tour Video)
+17             V              tTb7xbuZYYs    53m52s         RICK ASTLEY  Live Full Concert 2018
+18             P              RDdQw4w9WgXcQ                 Mix - Rick Astley - Never Gonna Give You Up (Video)
+19             V              p1tMZ50s2Oo    7m42s          Rick Astley - Never Gonna Give You Up (Live @ V Festival 2016 + Interview, HD)
+20             V              AC3Ejf7vPEY    3m39s          Rick Astley - Keep Singing (Official Music Video)
+21             V              BU1PaLmUcKg    6m47s          Rick Astley - My Arms Keep Missing You
+22             V              2nKsnQsi0EQ    3m17s          Rick Astley - She Wants To Dance With Me
 ```
 
 Choose what to play: a single video (`0`), a list (`0,3`) or a range (`0-3`)
