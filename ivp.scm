@@ -9,7 +9,7 @@
   (only chicken.string string-split))
 
 (import
-  (only cling *usage* help process-arguments)
+  (only cling *usage* arg cling help process-arguments)
   (only defstruct defstruct)
   (only fmt dsp fmt fmt-join tabular)
   (only salmonella-log-parser prettify-time)
@@ -54,44 +54,48 @@
 (define (die . rest)
   (error (string-concatenate rest)))
 
+(define *OPTS*
+  (cling
+    (lambda (ret _ rest)
+      (update-options ret #:rest rest))
+
+    (arg '((-? -h --help))
+         #:help "show this help message"
+         #:kons (lambda (ret _ _) (update-options ret #:help #t)))
+
+    (arg '((--instance) . instance)
+         #:help "the instance to use"
+         #:kons (lambda (ret _ instance) (update-options ret #:instance instance)))
+
+    (arg '((--page) . page)
+         #:help "the page number to show"
+         #:kons (lambda (ret _ page) (update-options ret #:page (string->number page))))
+
+    (arg '((--player) . player)
+         #:help "the player to use"
+         #:kons (lambda (ret _ player) (update-options ret #:player player)))
+
+    (arg '((--region) . region)
+         #:help "the search region"
+         #:kons (lambda (ret _ region) (update-options ret #:region region)))
+
+    (arg '((--sort-by) . sort-by)
+         #:help "the sort method"
+         #:kons (lambda (ret _ sort-by) (update-options ret #:sort-by sort-by)))
+
+    (arg '((--type) . type)
+         #:help "the search type (video, playlist, channel or all)"
+         #:kons (lambda (ret _ type)
+                  (let ((types '("all" "channel" "playlist" "video")))
+                    (if (member type types string=)
+                        (update-options ret #:type type)
+                        (die "--type: Expected one of "
+                             (sep-list-of-options
+                               (map (cut string-surround <> "`") types)
+                               ", " " or ")
+                             " but got " (string-surround type "`"))))))))
+
 (define (process-args args)
-  (define *OPTS*
-    `((((-? -h --help))
-       "show this help message"
-       ,(lambda (ret _ _) (update-options ret #:help #t)))
-
-      (((--instance) . instance)
-       "the instance to use"
-       ,(lambda (ret _ instance) (update-options ret #:instance instance)))
-
-      (((--page) . page)
-       "the page number to show"
-       ,(lambda (ret _ page) (update-options ret #:page (string->number page))))
-
-      (((--player) . player)
-       "the player to use"
-       ,(lambda (ret _ player) (update-options ret #:player player)))
-
-      (((--region) . region)
-       "the search region"
-       ,(lambda (ret _ region) (update-options ret #:region region)))
-
-      (((--sort-by) . sort-by)
-       "the sort method"
-       ,(lambda (ret _ sort-by) (update-options ret #:sort-by sort-by)))
-
-      (((--type) . type)
-       "the search type (video, playlist, channel or all)"
-       ,(lambda (ret _ type)
-          (let ((types '("all" "channel" "playlist" "video")))
-            (if (member type types string=)
-                (update-options ret #:type type)
-                (die "--type: Expected one of "
-                     (sep-list-of-options
-                       (map (cut string-surround <> "`") types)
-                       ", " " or ")
-                     " but got " (string-surround type "`"))))))))
-
   (define knil
     (make-options
       #:help #f
@@ -103,10 +107,7 @@
       #:sort-by #f
       #:type #f))
 
-  (define (rest-kons ret rest)
-    (update-options ret #:rest rest))
-
-  (let ((ret (process-arguments *OPTS* knil rest-kons args)))
+  (let ((ret (process-arguments *OPTS* knil args)))
     (*usage* usage)
     (*player* (options-player ret))
     (when (options-instance ret)
@@ -224,7 +225,8 @@
     (case type
       ((video)    "V")
       ((playlist) "P")
-      ((channel)  "C")))
+      ((channel)  "C")
+      (else " "))) ; Shouldn't happen
 
   (map (cut fmt-join dsp <> "\n")
        (list
@@ -273,7 +275,7 @@
   (let ((options (process-args args)))
     (cond
       ((options-help options)
-       (help (program-name)))
+       (help *OPTS* (program-name)))
       ((null? (options-rest options))
        (usage (program-name)))
       (else
