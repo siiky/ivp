@@ -117,7 +117,7 @@
 (: args->can-args ((list-of string) --> string))
 (define (args->can-args args) (string-join (map string-trim-both args) " "))
 
-(: line->numbers (string fixnum --> (or false (list-of fixnum))))
+(: line->numbers (string fixnum --> (or boolean (list-of fixnum))))
 (define line->numbers
   (let ((re (irregex "^(\\d+(-\\d+)?)(,\\d+(-\\d+)?)*$"))
         (line->numbers-int
@@ -149,8 +149,10 @@
                   #f)))))
     (lambda (ln max)
       (let ((trimmed (string-trim-both ln)))
-        (and (irregex-match? re trimmed)
-             (line->numbers-int trimmed max))))))
+        ; #f for none (not a valid line)
+        (or (string=? trimmed "all") ; #t for all videos
+            (and (irregex-match? re trimmed)
+                 (line->numbers-int trimmed max))))))) ; a list of idx
 
 (defstruct result type id name length-seconds)
 (define-type results (list-of (struct result)))
@@ -210,13 +212,17 @@
   ; NOTE: process-fork never fails
   (process-wait (process-run cmd args)))
 
-(: play-list (results (list-of fixnum) --> void))
+(: play-list (results (or true (list-of fixnum)) --> void))
 (define (play-list res idxs)
-  (let* ((filtered-res (map (cut list-ref res <>) idxs))
-         (watch-urls (map (lambda (r)
-                            (iv:watch (result-id r)
-                                      (result-type r)))
-                          filtered-res)))
+  (let* ((filtered-res
+           (if (boolean? idxs)
+               res
+               (map (cute list-ref res <>) idxs)))
+         (watch-urls
+           (map (lambda (r)
+                  (iv:watch (result-id r)
+                            (result-type r)))
+                filtered-res)))
     (process-spawn (*player*) watch-urls)))
 
 (: results->columns (results fixnum --> (list-of string)))
@@ -267,7 +273,7 @@
                   (let ((play-res (play-list res idxs)))
                     (unless play-res
                       (print "An error occured when trying to play the video(s)")))
-                  (print "Numbers in range only, please!"))
+                  (print "Use only numbers in range, or 'all'"))
               (loop)))))))
 
 (define (main args)
