@@ -1,7 +1,7 @@
 (import
   (except scheme map member)
   chicken.type
-  (only chicken.base add1 butlast cut intersperse)
+  (only chicken.base add1 butlast cute intersperse)
   (only chicken.io read-line)
   (only chicken.irregex irregex irregex-match?)
   (only chicken.process process-execute process-fork process-wait)
@@ -17,11 +17,11 @@
   (only srfi-13 string-concatenate string-join string-trim-both string=)
 
   (only invidious.uri *fields* *host*)
-  (rename (only invidious.req search) (search iv:search))
-  (rename (only invidious.uri watch) (watch iv:watch)))
+  (prefix (only invidious.req search) |iv:|)
+  (prefix (only invidious.uri instance watch) |iv:|))
 
 (: !f? ((or false 'a) ('a -> 'b) --> (or false 'b)))
-(define (!f? x f) (if x (f x) x))
+(define (!f? x f) (and x (f x)))
 
 (: ?? ((or false 'a) 'a --> 'a))
 (define (?? x d) (or x d))
@@ -29,6 +29,15 @@
 (define (singl? l)
   (and (pair? l)
        (null? (cdr l))))
+
+(define-type watch-instance (or false string))
+
+(: instance (watch-instance --> string))
+(define (instance watch-instance)
+  (if watch-instance
+      (parameterize ((*host* watch-instance))
+        (iv:instance))
+      (iv:instance)))
 
 (: *player* (#!optional string -> string))
 (define *player*
@@ -38,7 +47,7 @@
       (assert (string? str) "`*player*` must be a string")
       str)))
 
-(defstruct options help instance page player region rest sort-by type)
+(defstruct options help instance page player region rest sort-by type watch-instance)
 
 (: usage (string -> void))
 (define (usage pn)
@@ -91,9 +100,13 @@
                         (update-options ret #:type type)
                         (die "--type: Expected one of "
                              (sep-list-of-options
-                               (map (cut string-surround <> "`") types)
+                               (map (cute string-surround <> "`") types)
                                ", " " or ")
-                             " but got " (string-surround type "`"))))))))
+                             " but got " (string-surround type "`"))))))
+    (arg '((--watch-instance) . watch-instance)
+         #:help "the instance to use for the watch URL"
+         #:kons (lambda (ret _ watch-instance)
+                  (update-options ret #:watch-instance watch-instance)))))
 
 (define (process-args args)
   (define knil
@@ -105,7 +118,8 @@
       #:region #f
       #:rest '()
       #:sort-by #f
-      #:type #f))
+      #:type #f
+      #:watch-instance #f))
 
   (let ((ret (process-arguments *OPTS* knil args)))
     (*usage* usage)
@@ -125,9 +139,9 @@
             (let* ((ln (the (list-of string)
                             (string-split ln ","))) ; [String]
                    (ln (the (list-of (list-of string))
-                            (map (cut string-split <> "-") ln))) ; [[String]]
+                            (map (cute string-split <> "-") ln))) ; [[String]]
                    (ln (the (list-of (list-of fixnum))
-                            (map (cut map string->number <>) ln)))) ; [[Int]]
+                            (map (cute map string->number <>) ln)))) ; [[Int]]
               (if (every
                     (lambda (p)
                       (and (>= (car p) 0)
@@ -212,8 +226,8 @@
   ; NOTE: process-fork never fails
   (process-wait (process-run cmd args)))
 
-(: play-list (results (or true (list-of fixnum)) --> void))
-(define (play-list res idxs)
+(: play-list (results (or true (list-of fixnum)) watch-instance --> void))
+(define (play-list res idxs watch-instance)
   (let* ((filtered-res
            (if (boolean? idxs)
                res
@@ -221,7 +235,8 @@
          (watch-urls
            (map (lambda (r)
                   (iv:watch (result-id r)
-                            (result-type r)))
+                            #:type (result-type r)
+                            #:instance watch-instance))
                 filtered-res)))
     (process-spawn (*player*) watch-urls)))
 
@@ -234,15 +249,15 @@
       ((channel)  "C")
       (else " "))) ; Shouldn't happen
 
-  (map (cut fmt-join dsp <> "\n")
+  (map (cute fmt-join dsp <> "\n")
        (list
          (map number->string (iota len))
          (map (compose type->type-tag result-type) results)
          (map result-id results)
          (map ; video length ("" for playlists and channels)
            (compose
-             (cut ?? <> "")
-             (cut !f? <> prettify-time)
+             (cute ?? <> "")
+             (cute !f? <> prettify-time)
              result-length-seconds)
            results)
          (map result-name results))))
@@ -255,8 +270,8 @@
         (set! res (intersperse (map dsp columns) (dsp " "))))
       (fmt #t (apply tabular res)))))
 
-(: user-repl (results -> void))
-(define (user-repl res)
+(: user-repl (results watch-instance -> void))
+(define (user-repl res watch-instance)
   (define (quit? line)
     (or (eof-object? line)
         (string= line "q")
@@ -270,7 +285,7 @@
             (print "Bye!")
             (let ((idxs (line->numbers line len)))
               (if idxs
-                  (let ((play-res (play-list res idxs)))
+                  (let ((play-res (play-list res idxs watch-instance)))
                     (unless play-res
                       (print "An error occured when trying to play the video(s)")))
                   (print "Use only numbers in range, or 'all'"))
@@ -285,6 +300,7 @@
       ((null? (options-rest options))
        (usage (program-name)))
       (else
-        (user-repl (search options))))))
+        (user-repl (search options)
+                   (instance (options-watch-instance options)))))))
 
 (main (command-line-arguments))
