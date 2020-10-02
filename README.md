@@ -78,6 +78,6 @@ Configuration is currently limited.
 
 [cling]: https://github.com/siiky/cling
 [invidious.scm]: https://github.com/siiky/invidious.scm
-[invidious]: https://invidio.us
-[invidious_api]: https://github.com/omarroth/invidious/wiki/API
+[invidious]: https://invidious.snopyta.org
+[invidious_api]: https://github.com/iv-org/invidious/wiki/API
 [youtube_dl]: https://github.com/ytdl-org/youtube-dl

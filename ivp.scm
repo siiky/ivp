@@ -32,8 +32,8 @@
 
 (define-type watch-instance (or false string))
 
-(: instance (watch-instance --> string))
-(define (instance watch-instance)
+(: instance (#!optional watch-instance --> string))
+(define (instance #!optional (watch-instance #f))
   (if watch-instance
       (parameterize ((*host* watch-instance))
         (iv:instance))
