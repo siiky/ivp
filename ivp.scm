@@ -49,7 +49,7 @@
       (assert (string? str) "`*player*` must be a string")
       str)))
 
-(defstruct options help instance instances list-instances? page player region rest sort-by type watch-instance)
+(defstruct options help instance fallback? list-instances? page player region rest sort-by type watch-instance)
 
 (: usage (string -> void))
 (define (usage pn)
@@ -113,13 +113,19 @@
     (arg '((--list-instances))
          #:help "list the Invidious instances that will be tried -- includes the instance given with --instance, and instances registered at invidious.io"
          #:kons (lambda (ret _ _)
-                  (update-options ret #:list-instances? #t)))))
+                  (update-options ret #:list-instances? #t)))
+
+    (arg '((--no-fallback))
+         #:help "disable automatically trying other registered Invidious instances"
+         #:kons (lambda (ret _ _)
+                  (update-options ret #:fallback? #f)))))
 
 (define (process-args args)
   (define knil
     (make-options
       #:help #f
       #:instance #f
+      #:fallback? #t
       #:list-instances? #f
       #:page #f
       #:player "mpv"
@@ -137,15 +143,16 @@
 (: args->can-args ((list-of string) --> string))
 (define (args->can-args args) (string-join (map string-trim-both args) " "))
 
-(define (instances instance)
-  (let ((ret (map car (iv:instances))))
-    (if instance
-        (cons instance
-              (delete instance ret string=?))
-        ret)))
+(define (instances fallback? instance)
+  (if fallback?
+      (let ((ret (map car (iv:instances))))
+        (if instance
+            (cons instance (delete instance ret string=?))
+            ret))
+      `(,instance)))
 
 (define (print-instances instances)
-  (for-each print instances))
+  (for-each print (force instances)))
 
 (: line->numbers (string fixnum --> (or boolean (list-of fixnum))))
 (define line->numbers
@@ -240,7 +247,7 @@
         (iv:search #:q q #:page page #:region region #:sort-by sort-by #:type type)))
 
     (map vector->result
-         (let inner-instance-trial ((instances instances))
+         (let inner-instance-trial ((instances (force instances)))
            (if (null? instances)
                '()
                (let ((instance (car instances))
@@ -327,16 +334,17 @@
 
 (define (main args)
   (*fields* '(author authorId lengthSeconds playlistId title type videoId))
-  (let ((options (process-args args)))
+  (let* ((options (process-args args))
+         (instances (delay (instances (options-fallback? options) (options-instance options)))))
     (cond
       ((options-help options)
        (help *OPTS* (program-name)))
       ((options-list-instances? options)
-       (print-instances (instances (options-instance options))))
+       (print-instances instances))
       ((null? (options-rest options))
        (usage (program-name)))
       (else
-        (user-repl (search options (instances (options-instance options)))
+        (user-repl (search options instances)
                    (instance (options-watch-instance options)))))))
 
 (main (command-line-arguments))

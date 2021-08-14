@@ -2,7 +2,7 @@
 ((author "siiky")
  (license "unlicense")
  (synopsis "Search and play videos from Invidious")
- (version "0.4.1")
+ (version "0.5.0")
  (dependencies
    cling ; https://github.com/siiky/cling
    fmt
