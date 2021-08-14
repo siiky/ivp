@@ -2,6 +2,7 @@
   (except scheme map member)
   chicken.type
   (only chicken.base add1 butlast cute intersperse)
+  (only chicken.condition condition-case get-condition-property signal)
   (only chicken.io read-line)
   (only chicken.irregex irregex irregex-match?)
   (only chicken.process process-execute process-fork process-wait)
@@ -12,12 +13,13 @@
   (only cling *usage* arg cling help process-arguments)
   (only defstruct defstruct)
   (only fmt dsp fmt fmt-join tabular)
+  (only intarweb response-code)
   (only salmonella-log-parser prettify-time)
-  (only srfi-1 append-map every iota last map member)
+  (only srfi-1 append-map delete every iota last map member)
   (only srfi-13 string-concatenate string-join string-trim-both string=)
 
   (only invidious.uri *fields* *host*)
-  (prefix (only invidious.req search) |iv:|)
+  (prefix (only invidious.req search instances) |iv:|)
   (prefix (only invidious.uri instance watch) |iv:|))
 
 (: !f? ((or false 'a) ('a -> 'b) --> (or false 'b)))
@@ -47,7 +49,7 @@
       (assert (string? str) "`*player*` must be a string")
       str)))
 
-(defstruct options help instance page player region rest sort-by type watch-instance)
+(defstruct options help instance instances list-instances? page player region rest sort-by type watch-instance)
 
 (: usage (string -> void))
 (define (usage pn)
@@ -73,7 +75,7 @@
          #:kons (lambda (ret _ _) (update-options ret #:help #t)))
 
     (arg '((--instance) . instance)
-         #:help "the instance to use"
+         #:help "the Invidious instance to use"
          #:kons (lambda (ret _ instance) (update-options ret #:instance instance)))
 
     (arg '((--page) . page)
@@ -104,15 +106,21 @@
                                ", " " or ")
                              " but got " (string-surround type "`"))))))
     (arg '((--watch-instance) . watch-instance)
-         #:help "the instance to use for the watch URL"
+         #:help "the Invidious instance to use for the watch URL, or youtube.com"
          #:kons (lambda (ret _ watch-instance)
-                  (update-options ret #:watch-instance watch-instance)))))
+                  (update-options ret #:watch-instance watch-instance)))
+
+    (arg '((--list-instances))
+         #:help "list the Invidious instances that will be tried -- includes the instance given with --instance, and instances registered at invidious.io"
+         #:kons (lambda (ret _ _)
+                  (update-options ret #:list-instances? #t)))))
 
 (define (process-args args)
   (define knil
     (make-options
       #:help #f
       #:instance #f
+      #:list-instances? #f
       #:page #f
       #:player "mpv"
       #:region #f
@@ -124,12 +132,20 @@
   (let ((ret (process-arguments *OPTS* knil args)))
     (*usage* usage)
     (*player* (options-player ret))
-    (when (options-instance ret)
-      (*host* (options-instance ret)))
     ret))
 
 (: args->can-args ((list-of string) --> string))
 (define (args->can-args args) (string-join (map string-trim-both args) " "))
+
+(define (instances instance)
+  (let ((ret (map car (iv:instances))))
+    (if instance
+        (cons instance
+              (delete instance ret string=?))
+        ret)))
+
+(define (print-instances instances)
+  (for-each print instances))
 
 (: line->numbers (string fixnum --> (or boolean (list-of fixnum))))
 (define line->numbers
@@ -204,15 +220,34 @@
                  #:name name
                  #:length-seconds length-seconds)))
 
-(: search ((struct options) -> results))
-(define (search options)
-  (map vector->result
-       (iv:search
-         #:q       (args->can-args (options-rest options))
-         #:page    (options-page options)
-         #:region  (options-region options)
-         #:sort-by (options-sort-by options)
-         #:type    (options-type options))))
+(: search ((struct options) (list-of string) -> results))
+(define (search options instances)
+  (define (handle-403 condition loop instances)
+    (let ((response (get-condition-property condition 'client-error 'response)))
+      (if (and response (= (response-code response) 403))
+          (loop instances)
+          ; Rethrow any other errors
+          (signal condition))))
+
+  (let ((q       (args->can-args (options-rest options)))
+        (page    (options-page options))
+        (region  (options-region options))
+        (sort-by (options-sort-by options))
+        (type    (options-type options)))
+    (define (search1 instance)
+      (print "Trying " instance "...")
+      (parameterize ((*host* instance))
+        (iv:search #:q q #:page page #:region region #:sort-by sort-by #:type type)))
+
+    (map vector->result
+         (let inner-instance-trial ((instances instances))
+           (if (null? instances)
+               '()
+               (let ((instance (car instances))
+                     (instances (cdr instances)))
+                 (condition-case (search1 instance)
+                   (condition (exn http client-error)
+                              (handle-403 condition inner-instance-trial instances)))))))))
 
 ; NOTE: process-run from chicken.process lets the child run loose if exec fails
 (define (process-run cmd args)
@@ -252,14 +287,13 @@
   (map (cute fmt-join dsp <> "\n")
        (list
          (map number->string (iota len))
-         (map (compose type->type-tag result-type) results)
+         (map (o type->type-tag result-type) results)
          (map result-id results)
-         (map ; video length ("" for playlists and channels)
-           (compose
-             (cute ?? <> "")
-             (cute !f? <> prettify-time)
-             result-length-seconds)
-           results)
+         ; video length ("" for playlists and channels)
+         (map (o (cute ?? <> "")
+                 (cute !f? <> prettify-time)
+                 result-length-seconds)
+              results)
          (map result-name results))))
 
 (: print-results ((list-of string) -> void))
@@ -297,10 +331,12 @@
     (cond
       ((options-help options)
        (help *OPTS* (program-name)))
+      ((options-list-instances? options)
+       (print-instances (instances (options-instance options))))
       ((null? (options-rest options))
        (usage (program-name)))
       (else
-        (user-repl (search options)
+        (user-repl (search options (instances (options-instance options)))
                    (instance (options-watch-instance options)))))))
 
 (main (command-line-arguments))
