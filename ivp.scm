@@ -13,7 +13,6 @@
   (only cling *usage* arg cling help process-arguments)
   (only defstruct defstruct)
   (only fmt dsp fmt fmt-join tabular)
-  (only intarweb response-code)
   (only salmonella-log-parser prettify-time)
   (only srfi-1 append-map delete every iota last map member)
   (only srfi-13 string-concatenate string-join string-trim-both string=)
