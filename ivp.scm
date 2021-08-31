@@ -229,13 +229,6 @@
 
 (: search ((struct options) (list-of string) -> results))
 (define (search options instances)
-  (define (handle-403 condition loop instances)
-    (let ((response (get-condition-property condition 'client-error 'response)))
-      (if (and response (= (response-code response) 403))
-          (loop instances)
-          ; Rethrow any other errors
-          (signal condition))))
-
   (let ((q       (args->can-args (options-rest options)))
         (page    (options-page options))
         (region  (options-region options))
@@ -253,8 +246,8 @@
                (let ((instance (car instances))
                      (instances (cdr instances)))
                  (condition-case (search1 instance)
-                   (condition (exn http client-error)
-                              (handle-403 condition inner-instance-trial instances)))))))))
+                   (_ (exn http client-error) (inner-instance-trial instances))
+                   (_ (exn http server-error) (inner-instance-trial instances)))))))))
 
 ; NOTE: process-run from chicken.process lets the child run loose if exec fails
 (define (process-run cmd args)
