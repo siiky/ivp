@@ -143,12 +143,14 @@
 (define (args->can-args args) (string-join (map string-trim-both args) " "))
 
 (define (instances fallback? instance)
-  (if fallback?
-      (let ((ret (map car (iv:instances))))
-        (if instance
-            (cons instance (delete instance ret string=?))
-            ret))
-      `(,instance)))
+  (define (instances*)
+    (map (cute alist-ref 'instance <> eq?)
+         (iv:instances #:assume-yes? #t #:api #t #:cors #t #:type "https")))
+
+  (let ((instances (if fallback? (instances*) '())))
+    (if instance
+        (cons instance (delete instance instances string=?))
+        instances)))
 
 (define (print-instances instances)
   (for-each print (force instances)))
@@ -194,26 +196,25 @@
 (define-type results (list-of (struct result)))
 
 (: vector->result ((vector-of (pair string (or string fixnum))) --> (struct result)))
-(define (vector->result res)
+(define (vector->result lst)
   (: assoc-key (string (list-of (pair string (or string fixnum))) --> (or false string fixnum)))
   (define (assoc-key key alst)
-    (!f? (assoc key alst) cdr))
+    (alist-ref key alst eq? #f))
 
   (define (id-by-type type)
     (case type
-      ((channel)  "authorId")
-      ((playlist) "playlistId")
-      ((video)    "videoId")
+      ((channel)  'authorId)
+      ((playlist) 'playlistId)
+      ((video)    'videoId)
       (else #f)))
 
   (define (name-by-type type)
     (case type
-      ((channel)        "author")
-      ((playlist video) "title")
+      ((channel)        'author)
+      ((playlist video) 'title)
       (else #f)))
 
-  (let* ((lst (vector->list res))
-         (type (string->symbol (assoc-key "type" lst)))
+  (let* ((type (string->symbol (assoc-key 'type lst)))
          (id-key (id-by-type type))
          (id (assoc-key id-key lst))
          (name-key (name-by-type type))
@@ -239,14 +240,15 @@
         (iv:search #:q q #:page page #:region region #:sort-by sort-by #:type type)))
 
     (map vector->result
-         (let inner-instance-trial ((instances (force instances)))
-           (if (null? instances)
-               '()
+         (vector->list
+           (let inner-instance-trial ((instances (force instances)))
+             (if (null? instances)
+               #()
                (let ((instance (car instances))
                      (instances (cdr instances)))
                  (condition-case (search1 instance)
                    (_ (exn http client-error) (inner-instance-trial instances))
-                   (_ (exn http server-error) (inner-instance-trial instances)))))))))
+                   (_ (exn http server-error) (inner-instance-trial instances))))))))))
 
 ; NOTE: process-run from chicken.process lets the child run loose if exec fails
 (define (process-run cmd args)
